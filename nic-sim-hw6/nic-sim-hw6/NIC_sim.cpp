@@ -6,8 +6,24 @@
 #include <cstring>
 #include <cstdlib>
 #include <memory>
+#include <cctype>
 
 using namespace common;
+
+/**
+ * @brief Remove leading and trailing whitespace from a string.
+ */
+static std::string trim(const std::string &s) {
+    size_t start = 0;
+    while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start]))) {
+        ++start;
+    }
+    size_t end = s.size();
+    while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1]))) {
+        --end;
+    }
+    return s.substr(start, end - start);
+}
 
 static bool parse_mac_line(const std::string& s, uint8_t mac[MAC_SIZE]) {
     size_t a = 0;
@@ -99,13 +115,26 @@ nic_sim::nic_sim(std::string param_file) {
     std::string line;
     auto* priv = get_priv(this);
 
-    if (std::getline(in, line)) {
-        parse_mac_line(line, priv->mac);
-    }
-    if (std::getline(in, line)) {
-        parse_ip_mask_line(line, priv->ip, priv->mask_bits);
-    }
+    /* Parse MAC address line. */
     while (std::getline(in, line)) {
+        line = trim(line);
+        if (line.empty() || line[0] == '#') continue;
+        parse_mac_line(line, priv->mac);
+        break;
+    }
+
+    /* Parse IP/mask line. */
+    while (std::getline(in, line)) {
+        line = trim(line);
+        if (line.empty() || line[0] == '#') continue;
+        parse_ip_mask_line(line, priv->ip, priv->mask_bits);
+        break;
+    }
+
+    /* Parse open ports. */
+    while (std::getline(in, line)) {
+        line = trim(line);
+        if (line.empty() || line[0] == '#') continue;
         uint16_t src, dst;
         if (parse_open_port_line(line, src, dst)) {
             open_ports.emplace_back(dst, src);
@@ -118,7 +147,8 @@ void nic_sim::nic_flow(std::string packet_file) {
     std::ifstream in(packet_file);
     std::string line;
     while (std::getline(in, line)) {
-        if (line.empty()) continue;
+        line = trim(line);
+        if (line.empty() || line[0] == '#') continue;
         auto pkt = packet_factory(line);
         if (!pkt) continue;
 
@@ -169,8 +199,6 @@ nic_sim::~nic_sim() {
         }
     }
 }
-
-#include <cctype>
 
 static bool looks_like_mac_packet(const std::string& s) {
     int colons = 0;
