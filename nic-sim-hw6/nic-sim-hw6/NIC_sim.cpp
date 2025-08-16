@@ -162,6 +162,7 @@ nic_sim::~nic_sim() {
     auto& reg = registry();
     for (auto it = reg.begin(); it != reg.end(); ++it) {
         if (it->first == this) {
+            // release private state allocated for this simulator instance
             delete it->second;
             reg.erase(it);
             break;
