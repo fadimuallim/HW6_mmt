@@ -9,15 +9,16 @@ static inline uint16_t parse_u16(const std::string& s) {
 }
 
 l4_packet::l4_packet(const std::string& s) {
-    std::string idx_s = extract_between_delimiters(s, '|', 0, 0);
-    std::string src_s = extract_between_delimiters(s, '|', 1, 1);
-    std::string dst_s = extract_between_delimiters(s, '|', 2, 2);
+    // Expected format: "src_port|dst_port|index|<32-bytes>"
+    std::string src_s  = extract_between_delimiters(s, '|', 0, 0);
+    std::string dst_s  = extract_between_delimiters(s, '|', 1, 1);
+    std::string idx_s  = extract_between_delimiters(s, '|', 2, 2);
     std::string bytes_s = extract_between_delimiters(s, '|', 3, -1);
 
     try {
-        index_ = static_cast<uint32_t>(std::stoul(idx_s));
         src_port_ = parse_u16(src_s);
         dst_port_ = parse_u16(dst_s);
+        index_    = static_cast<uint32_t>(std::stoul(idx_s));
     } catch (...) {
         valid_parse_ = false;
         return;
@@ -74,9 +75,10 @@ bool l4_packet::proccess_packet(open_port_vec &open_ports,
 
 bool l4_packet::as_string(std::string &packet) {
     packet.clear();
-    packet += std::to_string(index_) + "|";
+    // Serialize back to the format: src|dst|index|data
     packet += std::to_string(src_port_) + "|";
     packet += std::to_string(dst_port_) + "|";
+    packet += std::to_string(index_) + "|";
     for (size_t i = 0; i < data_.size(); ++i) {
         char buf[3];
         std::snprintf(buf, sizeof(buf), "%02x", static_cast<unsigned int>(data_[i]));
