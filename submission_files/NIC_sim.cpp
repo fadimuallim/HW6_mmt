@@ -137,19 +137,6 @@ void nic_sim::nic_flow(std::string packet_file) {
 }
 
 void nic_sim::nic_print_results() {
-    // 1) RQ
-    std::cout << "RQ:\n";
-    for (const auto& s : RQ) {
-        std::cout << s << "\n";
-    }
-
-    // 2) TQ
-    std::cout << "TQ:\n";
-    for (const auto& s : TQ) {
-        std::cout << s << "\n";
-    }
-
-    // 3) LOCAL DRAM
     std::cout << "LOCAL DRAM:\n";
     for (const auto& op : open_ports) {
         std::cout << op.src_prt << " " << op.dst_prt << ": ";
@@ -161,25 +148,13 @@ void nic_sim::nic_print_results() {
         }
         std::cout << "\n";
     }
-}
-
+    std::cout << "\nRQ:\n";
     for (const auto& s : RQ) {
         std::cout << s << "\n";
     }
     std::cout << "\nTQ:\n";
     for (const auto& s : TQ) {
         std::cout << s << "\n";
-    }
-    std::cout << "\nLOCAL DRAM:\n";
-    for (const auto& op : open_ports) {
-        std::cout << op.dst_prt << " " << op.src_prt << ": ";
-        for (int i = 0; i < DATA_ARR_SIZE; i++) {
-            char buf[3];
-            std::snprintf(buf, sizeof(buf), "%02x", static_cast<unsigned int>(op.data[i]));
-            std::cout << buf;
-            if (i + 1 != DATA_ARR_SIZE) std::cout << " ";
-        }
-        std::cout << "\n";
     }
 }
 
