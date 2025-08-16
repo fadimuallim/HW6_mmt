@@ -67,7 +67,7 @@ void l2_packet::mac_to_string_upper(const uint8_t mac[MAC_SIZE], std::string& ou
     out.clear();
     for (int i=0;i<MAC_SIZE;i++) {
         char buf[3];
-        std::snprintf(buf, sizeof(buf), "%02x", static_cast<unsigned int>(mac[i]));
+        std::snprintf(buf, sizeof(buf), "%02X", static_cast<unsigned int>(mac[i]));
         out += buf;
         if (i+1 != MAC_SIZE) out += ":";
     }
@@ -89,8 +89,11 @@ bool l2_packet::validate_packet(open_port_vec open_ports,
     }
     uint32_t l3_sum = inner_->raw_fields_checksum();
     sum += l3_sum;
-    sum += static_cast<uint8_t>((l3_sum >> 8) & 0xFF);
-    sum += static_cast<uint8_t>(l3_sum & 0xFF);
+    uint32_t l3_cs = inner_->get_checksum();
+    sum += static_cast<uint8_t>((l3_cs >> 24) & 0xFF);
+    sum += static_cast<uint8_t>((l3_cs >> 16) & 0xFF);
+    sum += static_cast<uint8_t>((l3_cs >> 8) & 0xFF);
+    sum += static_cast<uint8_t>(l3_cs & 0xFF);
     return sum == checksum_;
 }
 
