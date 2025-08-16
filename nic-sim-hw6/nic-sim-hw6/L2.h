@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 #include "common.hpp"
 #include "packets.hpp"
 #include "L3.h"
@@ -23,7 +24,7 @@ public:
 
     bool as_string(std::string &packet) override;
 
-    ~l2_packet() override;
+    ~l2_packet() override = default;
 
 private:
     static bool parse_mac(const std::string& s, uint8_t out[common::MAC_SIZE]);
@@ -35,8 +36,7 @@ private:
     std::string l3_string_;
     bool valid_parse_{false};
 
-    l3_packet* inner_{nullptr};
-    bool owns_inner_{false};
+    std::unique_ptr<l3_packet> inner_;
 
     std::string out_l3_string_;
     uint32_t out_checksum_{0};

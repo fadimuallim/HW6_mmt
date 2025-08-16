@@ -2,11 +2,27 @@
 #include <cctype>
 #include <cstring>
 #include <cstdlib>
+#include <memory>
+#include <limits>
 
 using namespace common;
 
-static inline uint32_t parse_u32(const std::string& s) {
-    return static_cast<uint32_t>(std::stoul(s));
+static inline bool parse_u32(const std::string& s, uint32_t& out) {
+    size_t a = 0, b = s.size();
+    while (a < b && std::isspace(static_cast<unsigned char>(s[a]))) ++a;
+    while (b > a && std::isspace(static_cast<unsigned char>(s[b-1]))) --b;
+    if (a >= b) return false;
+    std::string t = s.substr(a, b - a);
+    if (t.find_first_not_of("0123456789") != std::string::npos)
+        return false;
+    try {
+        unsigned long val = std::stoul(t);
+        if (val > std::numeric_limits<uint32_t>::max()) return false;
+        out = static_cast<uint32_t>(val);
+        return true;
+    } catch (...) {
+        return false;
+    }
 }
 
 l2_packet::l2_packet(const std::string& s) {
@@ -28,15 +44,12 @@ l2_packet::l2_packet(const std::string& s) {
         valid_parse_ = false;
         return;
     }
-    try {
-        checksum_ = parse_u32(cs_s);
-    } catch (...) {
+    if (!parse_u32(cs_s, checksum_)) {
         valid_parse_ = false;
         return;
     }
 
-    inner_ = new l3_packet(inner);
-    owns_inner_ = true;
+    inner_ = std::unique_ptr<l3_packet>(new l3_packet(inner));
     l3_string_ = inner;
     valid_parse_ = true;
 }
@@ -125,11 +138,4 @@ bool l2_packet::as_string(std::string &packet) {
     packet += s_mac + "|" + d_mac + "|" + out_l3_string_ + "|";
     packet += std::to_string(0);
     return true;
-}
-
-l2_packet::~l2_packet() {
-    if (owns_inner_) {
-        delete inner_;
-        inner_ = nullptr;
-    }
 }

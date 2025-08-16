@@ -17,6 +17,7 @@
 #include "L2.h"
 #include "L3.h"
 #include "L4.h"
+#include <memory>
 
 class nic_sim {
     public:
@@ -77,7 +78,7 @@ class nic_sim {
      *
      * @return Pointer to a generic_packet object.
      */
-    generic_packet *packet_factory(std::string &packet);
+    std::unique_ptr<generic_packet> packet_factory(std::string &packet);
 
     /**
      * @param open_ports - Vector containing all open communications.

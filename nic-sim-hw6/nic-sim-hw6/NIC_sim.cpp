@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <memory>
+#include <limits>
 
 using namespace common;
 
@@ -35,19 +36,42 @@ static bool parse_ip_mask_line(const std::string& s, uint8_t ip[IP_V4_SIZE], uin
     size_t slash = s.find('/');
     if (slash == std::string::npos) return false;
     std::string ip_s = s.substr(0, slash);
-    std::string bits_s = s.substr(slash+1);
-    size_t a = 0, b;
-    for (int i=0;i<4;i++) {
-        b = ip_s.find(i<3?'.':'\0', a);
-        std::string part = (i<3) ? ip_s.substr(a, b-a) : ip_s.substr(a);
-        int val = std::stoi(part);
-        if (val<0 || val>255) return false;
-        ip[i] = static_cast<uint8_t>(val);
-        if (i<3) a = b+1;
+    std::string bits_s = s.substr(slash + 1);
+    auto trim = [](const std::string& str) {
+        size_t a = 0, b = str.size();
+        while (a < b && std::isspace(static_cast<unsigned char>(str[a]))) ++a;
+        while (b > a && std::isspace(static_cast<unsigned char>(str[b-1]))) --b;
+        return str.substr(a, b - a);
+    };
+    ip_s = trim(ip_s);
+    bits_s = trim(bits_s);
+
+    size_t start = 0;
+    for (int i = 0; i < 4; ++i) {
+        size_t end = (i < 3) ? ip_s.find('.', start) : ip_s.size();
+        if (end == std::string::npos) return false;
+        std::string part = ip_s.substr(start, end - start);
+        if (part.empty() || part.find_first_not_of("0123456789") != std::string::npos)
+            return false;
+        try {
+            int val = std::stoi(part);
+            if (val < 0 || val > 255) return false;
+            ip[i] = static_cast<uint8_t>(val);
+        } catch (...) {
+            return false;
+        }
+        start = end + 1;
     }
-    int bits = std::stoi(bits_s);
-    if (bits < 0 || bits > 32) return false;
-    mask_bits = static_cast<uint8_t>(bits);
+
+    if (bits_s.empty() || bits_s.find_first_not_of("0123456789") != std::string::npos)
+        return false;
+    try {
+        int bits = std::stoi(bits_s);
+        if (bits < 0 || bits > 32) return false;
+        mask_bits = static_cast<uint8_t>(bits);
+    } catch (...) {
+        return false;
+    }
     return true;
 }
 
@@ -119,16 +143,14 @@ void nic_sim::nic_flow(std::string packet_file) {
     std::string line;
     while (std::getline(in, line)) {
         if (line.empty()) continue;
-        generic_packet* pkt = packet_factory(line);
+        auto pkt = packet_factory(line);
         if (!pkt) continue;
 
         if (!pkt->validate_packet(open_ports, priv->ip, priv->mask_bits, priv->mac)) {
-            delete pkt;
             continue;
         }
         memory_dest dst;
         if (!pkt->proccess_packet(open_ports, priv->ip, priv->mask_bits, dst)) {
-            delete pkt;
             continue;
         }
         if (dst == common::RQ || dst == common::TQ) {
@@ -136,7 +158,6 @@ void nic_sim::nic_flow(std::string packet_file) {
             pkt->as_string(s);
             if (dst == common::RQ) RQ.push_back(s); else TQ.push_back(s);
         }
-        delete pkt;
     }
 }
 
@@ -193,12 +214,12 @@ static bool looks_like_l3_packet(const std::string& s) {
     return is_ip(first);
 }
 
-generic_packet* nic_sim::packet_factory(std::string &packet) {
+std::unique_ptr<generic_packet> nic_sim::packet_factory(std::string &packet) {
     if (looks_like_mac_packet(packet)) {
-        return new l2_packet(packet);
+        return std::unique_ptr<generic_packet>(new l2_packet(packet));
     } else if (looks_like_l3_packet(packet)) {
-        return new l3_packet(packet);
+        return std::unique_ptr<generic_packet>(new l3_packet(packet));
     } else {
-        return new l4_packet(packet);
+        return std::unique_ptr<generic_packet>(new l4_packet(packet));
     }
 }
