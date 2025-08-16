@@ -109,10 +109,6 @@ uint32_t l3_packet::raw_fields_checksum() const {
     return compute_checksum(src_ip_, dst_ip_, ttl_, dst_port_, src_port_, l4_index_, data_);
 }
 
-uint32_t l3_packet::get_checksum() const {
-    return checksum_;
-}
-
 void l3_packet::ip_to_string_upper(const uint8_t ip[4], std::string& out) {
     out.clear();
     out += std::to_string(ip[0]); out += ".";
@@ -155,7 +151,7 @@ bool l3_packet::proccess_packet(open_port_vec &open_ports,
     out_ttl_ = new_ttl;
 
     if (dst_is_nic) {
-        l4_packet inner(l4_index_, src_port_, dst_port_, data_);
+        l4_packet inner(l4_index_, dst_port_, src_port_, data_);
         memory_dest inner_dst;
         if (!(inner.validate_packet(open_ports, nic_ip, mask, nullptr) &&
               inner.proccess_packet(open_ports, nic_ip, mask, inner_dst))) {
@@ -206,7 +202,7 @@ bool l3_packet::as_string(std::string &packet) {
     packet += std::to_string(dst_port_) + "|" + std::to_string(src_port_) + "|" + std::to_string(l4_index_) + "|";
     for (size_t i = 0; i < data_.size(); ++i) {
         char buf[3];
-        std::snprintf(buf, sizeof(buf), "%02X", static_cast<unsigned int>(data_[i]));
+        std::snprintf(buf, sizeof(buf), "%02x", static_cast<unsigned int>(data_[i]));
         packet += buf;
         if (i + 1 != data_.size()) packet += " ";
     }

@@ -81,7 +81,7 @@ bool l4_packet::as_string(std::string &packet) {
     packet += std::to_string(index_) + "|";
     for (size_t i = 0; i < data_.size(); ++i) {
         char buf[3];
-        std::snprintf(buf, sizeof(buf), "%02X", static_cast<unsigned int>(data_[i]));
+        std::snprintf(buf, sizeof(buf), "%02x", static_cast<unsigned int>(data_[i]));
         packet += buf;
         if (i + 1 != data_.size()) packet += " ";
     }

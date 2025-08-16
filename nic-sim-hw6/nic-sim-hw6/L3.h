@@ -34,7 +34,6 @@ public:
                                      const std::vector<uint8_t>& data);
 
     uint32_t raw_fields_checksum() const;
-    uint32_t get_checksum() const;
 
 private:
     static bool parse_ip(const std::string& s, uint8_t out[common::IP_V4_SIZE]);
