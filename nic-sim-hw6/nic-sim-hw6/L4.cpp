@@ -1,11 +1,44 @@
 #include "L4.h"
 #include <cctype>
 #include <cstdlib>
+#include <limits>
 
 using namespace common;
 
-static inline uint16_t parse_u16(const std::string& s) {
-    return static_cast<uint16_t>(std::stoi(s));
+static inline bool parse_u16(const std::string& s, uint16_t& out) {
+    size_t a = 0, b = s.size();
+    while (a < b && std::isspace(static_cast<unsigned char>(s[a]))) ++a;
+    while (b > a && std::isspace(static_cast<unsigned char>(s[b-1]))) --b;
+    if (a >= b) return false;
+    std::string t = s.substr(a, b - a);
+    if (t.find_first_not_of("0123456789") != std::string::npos)
+        return false;
+    try {
+        unsigned long val = std::stoul(t);
+        if (val > std::numeric_limits<uint16_t>::max()) return false;
+        out = static_cast<uint16_t>(val);
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+static inline bool parse_u32(const std::string& s, uint32_t& out) {
+    size_t a = 0, b = s.size();
+    while (a < b && std::isspace(static_cast<unsigned char>(s[a]))) ++a;
+    while (b > a && std::isspace(static_cast<unsigned char>(s[b-1]))) --b;
+    if (a >= b) return false;
+    std::string t = s.substr(a, b - a);
+    if (t.find_first_not_of("0123456789") != std::string::npos)
+        return false;
+    try {
+        unsigned long val = std::stoul(t);
+        if (val > std::numeric_limits<uint32_t>::max()) return false;
+        out = static_cast<uint32_t>(val);
+        return true;
+    } catch (...) {
+        return false;
+    }
 }
 
 l4_packet::l4_packet(const std::string& s) {
@@ -15,14 +48,16 @@ l4_packet::l4_packet(const std::string& s) {
     std::string idx_s  = extract_between_delimiters(s, '|', 2, 2);
     std::string bytes_s = extract_between_delimiters(s, '|', 3, -1);
 
-    try {
-        src_port_ = parse_u16(src_s);
-        dst_port_ = parse_u16(dst_s);
-        index_    = static_cast<uint32_t>(std::stoul(idx_s));
-    } catch (...) {
+    uint16_t src_tmp, dst_tmp;
+    uint32_t idx_tmp;
+    if (!parse_u16(src_s, src_tmp) || !parse_u16(dst_s, dst_tmp) ||
+        !parse_u32(idx_s, idx_tmp)) {
         valid_parse_ = false;
         return;
     }
+    src_port_ = src_tmp;
+    dst_port_ = dst_tmp;
+    index_ = idx_tmp;
 
     std::vector<uint8_t> bytes;
     if (!parse_hex_bytes_32(bytes_s, bytes)) {
