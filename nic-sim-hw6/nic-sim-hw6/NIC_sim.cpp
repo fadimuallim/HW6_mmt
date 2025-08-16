@@ -93,6 +93,8 @@ static nic_sim_priv* get_priv(nic_sim* self) {
     return reg.back().second.get();
 }
 
+// Delete packets according to their concrete type so any owned payloads are
+// released even when the base `generic_packet` lacks a virtual destructor.
 static void destroy_packet(generic_packet* pkt) {
     if (!pkt) return;
     if (auto p = dynamic_cast<l2_packet*>(pkt)) {

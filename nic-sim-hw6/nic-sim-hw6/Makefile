@@ -1,4 +1,5 @@
 CXX=g++
+# Build with extra warnings enabled but silence sign-compare noise
 CXXFLAGS=-Wall -Wextra -Wno-sign-compare -std=gnu++11 -include cstdint
 
 SRCS=main.cpp NIC_sim.cpp L2.cpp L3.cpp L4.cpp
