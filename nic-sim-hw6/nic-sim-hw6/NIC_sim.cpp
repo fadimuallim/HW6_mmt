@@ -119,16 +119,14 @@ void nic_sim::nic_flow(std::string packet_file) {
     std::string line;
     while (std::getline(in, line)) {
         if (line.empty()) continue;
-        generic_packet* pkt = packet_factory(line);
+        auto pkt = packet_factory(line);
         if (!pkt) continue;
 
         if (!pkt->validate_packet(open_ports, priv->ip, priv->mask_bits, priv->mac)) {
-            delete pkt;
             continue;
         }
         memory_dest dst;
         if (!pkt->proccess_packet(open_ports, priv->ip, priv->mask_bits, dst)) {
-            delete pkt;
             continue;
         }
         if (dst == common::RQ || dst == common::TQ) {
@@ -136,7 +134,6 @@ void nic_sim::nic_flow(std::string packet_file) {
             pkt->as_string(s);
             if (dst == common::RQ) RQ.push_back(s); else TQ.push_back(s);
         }
-        delete pkt;
     }
 }
 
@@ -193,12 +190,12 @@ static bool looks_like_l3_packet(const std::string& s) {
     return is_ip(first);
 }
 
-generic_packet* nic_sim::packet_factory(std::string &packet) {
+std::unique_ptr<generic_packet> nic_sim::packet_factory(std::string &packet) {
     if (looks_like_mac_packet(packet)) {
-        return new l2_packet(packet);
+        return std::unique_ptr<generic_packet>(new l2_packet(packet));
     } else if (looks_like_l3_packet(packet)) {
-        return new l3_packet(packet);
+        return std::unique_ptr<generic_packet>(new l3_packet(packet));
     } else {
-        return new l4_packet(packet);
+        return std::unique_ptr<generic_packet>(new l4_packet(packet));
     }
 }

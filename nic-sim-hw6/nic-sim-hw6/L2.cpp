@@ -2,6 +2,7 @@
 #include <cctype>
 #include <cstring>
 #include <cstdlib>
+#include <memory>
 
 using namespace common;
 
@@ -35,8 +36,7 @@ l2_packet::l2_packet(const std::string& s) {
         return;
     }
 
-    inner_ = new l3_packet(inner);
-    owns_inner_ = true;
+    inner_ = std::unique_ptr<l3_packet>(new l3_packet(inner));
     l3_string_ = inner;
     valid_parse_ = true;
 }
@@ -125,11 +125,4 @@ bool l2_packet::as_string(std::string &packet) {
     packet += s_mac + "|" + d_mac + "|" + out_l3_string_ + "|";
     packet += std::to_string(0);
     return true;
-}
-
-l2_packet::~l2_packet() {
-    if (owns_inner_) {
-        delete inner_;
-        inner_ = nullptr;
-    }
 }
