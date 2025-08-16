@@ -1,7 +1,6 @@
 #include "NIC_sim.hpp"
 #include <fstream>
 #include <string>
-#include <vector>
 #include <cstring>
 #include <cstdlib>
 
