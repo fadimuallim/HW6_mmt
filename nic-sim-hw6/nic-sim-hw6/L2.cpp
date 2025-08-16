@@ -3,27 +3,11 @@
 #include <cstring>
 #include <cstdlib>
 #include <memory>
-#include <limits>
-
 
 using namespace common;
 
-static inline bool parse_u32(const std::string& s, uint32_t& out) {
-    size_t a = 0, b = s.size();
-    while (a < b && std::isspace(static_cast<unsigned char>(s[a]))) ++a;
-    while (b > a && std::isspace(static_cast<unsigned char>(s[b-1]))) --b;
-    if (a >= b) return false;
-    std::string t = s.substr(a, b - a);
-    if (t.find_first_not_of("0123456789") != std::string::npos)
-        return false;
-    try {
-        unsigned long val = std::stoul(t);
-        if (val > std::numeric_limits<uint32_t>::max()) return false;
-        out = static_cast<uint32_t>(val);
-        return true;
-    } catch (...) {
-        return false;
-    }
+static inline uint32_t parse_u32(const std::string& s) {
+    return static_cast<uint32_t>(std::stoul(s));
 }
 
 l2_packet::l2_packet(const std::string& s) {
@@ -45,7 +29,9 @@ l2_packet::l2_packet(const std::string& s) {
         valid_parse_ = false;
         return;
     }
-    if (!parse_u32(cs_s, checksum_)) {
+    try {
+        checksum_ = parse_u32(cs_s);
+    } catch (...) {
         valid_parse_ = false;
         return;
     }

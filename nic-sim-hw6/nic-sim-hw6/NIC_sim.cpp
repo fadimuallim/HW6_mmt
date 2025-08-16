@@ -6,7 +6,6 @@
 #include <cstring>
 #include <cstdlib>
 #include <memory>
-#include <limits>
 
 using namespace common;
 
@@ -36,42 +35,19 @@ static bool parse_ip_mask_line(const std::string& s, uint8_t ip[IP_V4_SIZE], uin
     size_t slash = s.find('/');
     if (slash == std::string::npos) return false;
     std::string ip_s = s.substr(0, slash);
-    std::string bits_s = s.substr(slash + 1);
-    auto trim = [](const std::string& str) {
-        size_t a = 0, b = str.size();
-        while (a < b && std::isspace(static_cast<unsigned char>(str[a]))) ++a;
-        while (b > a && std::isspace(static_cast<unsigned char>(str[b-1]))) --b;
-        return str.substr(a, b - a);
-    };
-    ip_s = trim(ip_s);
-    bits_s = trim(bits_s);
-
-    size_t start = 0;
-    for (int i = 0; i < 4; ++i) {
-        size_t end = (i < 3) ? ip_s.find('.', start) : ip_s.size();
-        if (end == std::string::npos) return false;
-        std::string part = ip_s.substr(start, end - start);
-        if (part.empty() || part.find_first_not_of("0123456789") != std::string::npos)
-            return false;
-        try {
-            int val = std::stoi(part);
-            if (val < 0 || val > 255) return false;
-            ip[i] = static_cast<uint8_t>(val);
-        } catch (...) {
-            return false;
-        }
-        start = end + 1;
+    std::string bits_s = s.substr(slash+1);
+    size_t a = 0, b;
+    for (int i=0;i<4;i++) {
+        b = ip_s.find(i<3?'.':'\0', a);
+        std::string part = (i<3) ? ip_s.substr(a, b-a) : ip_s.substr(a);
+        int val = std::stoi(part);
+        if (val<0 || val>255) return false;
+        ip[i] = static_cast<uint8_t>(val);
+        if (i<3) a = b+1;
     }
-
-    if (bits_s.empty() || bits_s.find_first_not_of("0123456789") != std::string::npos)
-        return false;
-    try {
-        int bits = std::stoi(bits_s);
-        if (bits < 0 || bits > 32) return false;
-        mask_bits = static_cast<uint8_t>(bits);
-    } catch (...) {
-        return false;
-    }
+    int bits = std::stoi(bits_s);
+    if (bits < 0 || bits > 32) return false;
+    mask_bits = static_cast<uint8_t>(bits);
     return true;
 }
 

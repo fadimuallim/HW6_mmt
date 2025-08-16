@@ -2,44 +2,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <cctype>
-#include <limits>
 
 using namespace common;
 
-static inline bool parse_u16(const std::string& s, uint16_t& out) {
-    size_t a = 0, b = s.size();
-    while (a < b && std::isspace(static_cast<unsigned char>(s[a]))) ++a;
-    while (b > a && std::isspace(static_cast<unsigned char>(s[b-1]))) --b;
-    if (a >= b) return false;
-    std::string t = s.substr(a, b - a);
-    if (t.find_first_not_of("0123456789") != std::string::npos)
-        return false;
-    try {
-        unsigned long val = std::stoul(t);
-        if (val > std::numeric_limits<uint16_t>::max()) return false;
-        out = static_cast<uint16_t>(val);
-        return true;
-    } catch (...) {
-        return false;
-    }
-}
-
-static inline bool parse_u32(const std::string& s, uint32_t& out) {
-    size_t a = 0, b = s.size();
-    while (a < b && std::isspace(static_cast<unsigned char>(s[a]))) ++a;
-    while (b > a && std::isspace(static_cast<unsigned char>(s[b-1]))) --b;
-    if (a >= b) return false;
-    std::string t = s.substr(a, b - a);
-    if (t.find_first_not_of("0123456789") != std::string::npos)
-        return false;
-    try {
-        unsigned long val = std::stoul(t);
-        if (val > std::numeric_limits<uint32_t>::max()) return false;
-        out = static_cast<uint32_t>(val);
-        return true;
-    } catch (...) {
-        return false;
-    }
+static inline uint16_t parse_u16(const std::string& s) {
+    return static_cast<uint16_t>(std::stoi(s));
 }
 
 l3_packet::l3_packet(const std::string& s) {
@@ -55,18 +22,13 @@ l3_packet::l3_packet(const std::string& s) {
     if (!parse_ip(src_s, src_ip_) || !parse_ip(dst_s, dst_ip_)) {
         valid_parse_ = false; return;
     }
-    uint32_t ttl_tmp, cs_tmp, idx_tmp;
-    uint16_t dst_tmp, src_tmp;
-    if (!parse_u32(ttl_s, ttl_tmp) || !parse_u32(cs_s, cs_tmp) ||
-        !parse_u16(dstp_s, dst_tmp) || !parse_u16(srcp_s, src_tmp) ||
-        !parse_u32(zero_s, idx_tmp)) {
-        valid_parse_ = false; return;
-    }
-    ttl_ = ttl_tmp;
-    checksum_ = cs_tmp;
-    dst_port_ = dst_tmp;
-    src_port_ = src_tmp;
-    l4_index_ = idx_tmp;
+    try {
+        ttl_ = static_cast<uint32_t>(std::stoul(ttl_s));
+        checksum_ = static_cast<uint32_t>(std::stoul(cs_s));
+        dst_port_ = parse_u16(dstp_s);
+        src_port_ = parse_u16(srcp_s);
+        l4_index_ = static_cast<uint32_t>(std::stoul(zero_s));
+    } catch (...) { valid_parse_ = false; return; }
 
     // parse 32 bytes payload
     std::vector<uint8_t> bytes;
@@ -97,21 +59,15 @@ l3_packet::l3_packet(const std::string& s) {
 }
 
 bool l3_packet::parse_ip(const std::string& s, uint8_t out[4]) {
-    size_t start = 0;
-    for (int i = 0; i < 4; ++i) {
-        size_t end = (i < 3) ? s.find('.', start) : s.size();
-        if (end == std::string::npos) return false;
-        std::string part = s.substr(start, end - start);
-        if (part.empty() || part.find_first_not_of("0123456789") != std::string::npos)
-            return false;
-        try {
-            int val = std::stoi(part);
-            if (val < 0 || val > 255) return false;
-            out[i] = static_cast<uint8_t>(val);
-        } catch (...) {
-            return false;
-        }
-        start = end + 1;
+    size_t a = 0, b;
+    for (int i=0;i<4;i++) {
+        b = s.find(i<3?'.': '\0', a);
+        std::string part = (i<3) ? s.substr(a, b-a) : s.substr(a);
+        if (part.empty()) return false;
+        int val = std::stoi(part);
+        if (val < 0 || val > 255) return false;
+        out[i] = static_cast<uint8_t>(val);
+        if (i<3) a = b+1;
     }
     return true;
 }
