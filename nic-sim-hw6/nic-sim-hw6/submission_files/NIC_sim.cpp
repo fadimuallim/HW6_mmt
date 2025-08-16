@@ -1,4 +1,5 @@
 #include "NIC_sim.hpp"
+// use NIC_sim.hpp directly
 #include <fstream>
 #include <string>
 #include <vector>
@@ -61,11 +62,8 @@ static bool parse_open_port_line(const std::string& s, uint16_t &src, uint16_t &
     std::string s_src = s.substr(c1+1, comma - (c1+1));
     std::string s_dst = s.substr(c2+1);
     try {
-        int s_val = std::stoi(s_src);
-        int d_val = std::stoi(s_dst);
-        if (s_val < 0 || s_val > 65535 || d_val < 0 || d_val > 65535) return false;
-        src = static_cast<uint16_t>(s_val);
-        dst = static_cast<uint16_t>(d_val);
+        src = static_cast<uint16_t>(std::stoi(s_src));
+        dst = static_cast<uint16_t>(std::stoi(s_dst));
     } catch (...) { return false; }
     return true;
 }
@@ -77,16 +75,11 @@ public:
     uint8_t mask_bits{0};
 };
 
-static std::vector<std::pair<nic_sim*, nic_sim_priv*>>& registry() {
-    static std::vector<std::pair<nic_sim*, nic_sim_priv*>> reg;
-    return reg;
-}
-
 static nic_sim_priv* get_priv(nic_sim* self) {
-    auto& reg = registry();
-    for (auto& p : reg) if (p.first == self) return p.second;
+    static std::vector<std::pair<nic_sim*, nic_sim_priv*>> registry;
+    for (auto& p : registry) if (p.first == self) return p.second;
     auto* priv = new nic_sim_priv();
-    reg.push_back({self, priv});
+    registry.push_back({self, priv});
     return priv;
 }
 
@@ -159,15 +152,8 @@ void nic_sim::nic_print_results() {
 }
 
 nic_sim::~nic_sim() {
-    auto& reg = registry();
-    for (auto it = reg.begin(); it != reg.end(); ++it) {
-        if (it->first == this) {
-            // release private state allocated for this simulator instance
-            delete it->second;
-            reg.erase(it);
-            break;
-        }
-    }
+    auto* priv = get_priv(this);
+    (void)priv;
 }
 
 #include <cctype>
