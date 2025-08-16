@@ -10,17 +10,30 @@ static inline uint32_t parse_u32(const std::string& s) {
 }
 
 l2_packet::l2_packet(const std::string& s) {
-    std::string src_s = extract_between_delimiters(s, '|', 0, 0);
-    std::string dst_s = extract_between_delimiters(s, '|', 1, 1);
-    std::string inner  = extract_between_delimiters(s, '|', 2, 2);
-    std::string cs_s = extract_between_delimiters(s, '|', 3, -1);
+    // Format: src_mac|dst_mac|<L3 packet>|checksum
+    size_t first = s.find('|');
+    size_t second = s.find('|', first + 1);
+    size_t last = s.rfind('|');
+    if (first == std::string::npos || second == std::string::npos ||
+        last == std::string::npos || last <= second) {
+        valid_parse_ = false;
+        return;
+    }
+    std::string src_s = s.substr(0, first);
+    std::string dst_s = s.substr(first + 1, second - first - 1);
+    std::string inner = s.substr(second + 1, last - second - 1);
+    std::string cs_s = s.substr(last + 1);
 
     if (!parse_mac(src_s, src_mac_) || !parse_mac(dst_s, dst_mac_)) {
-        valid_parse_ = false; return;
+        valid_parse_ = false;
+        return;
     }
     try {
         checksum_ = parse_u32(cs_s);
-    } catch (...) { valid_parse_ = false; return; }
+    } catch (...) {
+        valid_parse_ = false;
+        return;
+    }
 
     inner_ = new l3_packet(inner);
     owns_inner_ = true;
@@ -65,12 +78,20 @@ bool l2_packet::validate_packet(open_port_vec open_ports,
                                 uint8_t mask,
                                 uint8_t mac[MAC_SIZE]) {
     (void)open_ports; (void)ip; (void)mask;
-    if (!valid_parse_) return false;
-    if (mac == nullptr) return false;
-    for (int i=0;i<MAC_SIZE;i++) {
+    if (!valid_parse_ || mac == nullptr || !inner_) return false;
+    for (int i = 0; i < MAC_SIZE; i++) {
         if (dst_mac_[i] != mac[i]) return false;
     }
-    return true;
+    uint32_t sum = 0;
+    for (int i = 0; i < MAC_SIZE; i++) {
+        sum += src_mac_[i];
+        sum += dst_mac_[i];
+    }
+    uint32_t l3_sum = inner_->raw_fields_checksum();
+    sum += l3_sum;
+    sum += static_cast<uint8_t>((l3_sum >> 8) & 0xFF);
+    sum += static_cast<uint8_t>(l3_sum & 0xFF);
+    return sum == checksum_;
 }
 
 bool l2_packet::proccess_packet(open_port_vec &open_ports,
@@ -93,6 +114,10 @@ bool l2_packet::proccess_packet(open_port_vec &open_ports,
 }
 
 bool l2_packet::as_string(std::string &packet) {
+    if (to_rq_ || to_tq_) {
+        packet = out_l3_string_;
+        return true;
+    }
     std::string s_mac, d_mac;
     mac_to_string_upper(src_mac_, s_mac);
     mac_to_string_upper(dst_mac_, d_mac);
@@ -100,4 +125,11 @@ bool l2_packet::as_string(std::string &packet) {
     packet += s_mac + "|" + d_mac + "|" + out_l3_string_ + "|";
     packet += std::to_string(0);
     return true;
+}
+
+l2_packet::~l2_packet() {
+    if (owns_inner_) {
+        delete inner_;
+        inner_ = nullptr;
+    }
 }

@@ -1,6 +1,7 @@
 #include "NIC_sim.h"
 #include <fstream>
 #include <string>
+#include <vector>
 #include <cstring>
 #include <cstdlib>
 
@@ -60,8 +61,11 @@ static bool parse_open_port_line(const std::string& s, uint16_t &src, uint16_t &
     std::string s_src = s.substr(c1+1, comma - (c1+1));
     std::string s_dst = s.substr(c2+1);
     try {
-        src = static_cast<uint16_t>(std::stoi(s_src));
-        dst = static_cast<uint16_t>(std::stoi(s_dst));
+        int s_val = std::stoi(s_src);
+        int d_val = std::stoi(s_dst);
+        if (s_val < 0 || s_val > 65535 || d_val < 0 || d_val > 65535) return false;
+        src = static_cast<uint16_t>(s_val);
+        dst = static_cast<uint16_t>(d_val);
     } catch (...) { return false; }
     return true;
 }
@@ -73,11 +77,16 @@ public:
     uint8_t mask_bits{0};
 };
 
+static std::vector<std::pair<nic_sim*, nic_sim_priv*>>& registry() {
+    static std::vector<std::pair<nic_sim*, nic_sim_priv*>> reg;
+    return reg;
+}
+
 static nic_sim_priv* get_priv(nic_sim* self) {
-    static std::vector<std::pair<nic_sim*, nic_sim_priv*>> registry;
-    for (auto& p : registry) if (p.first == self) return p.second;
+    auto& reg = registry();
+    for (auto& p : reg) if (p.first == self) return p.second;
     auto* priv = new nic_sim_priv();
-    registry.push_back({self, priv});
+    reg.push_back({self, priv});
     return priv;
 }
 
@@ -128,30 +137,37 @@ void nic_sim::nic_flow(std::string packet_file) {
 }
 
 void nic_sim::nic_print_results() {
-    std::cout << "LOCAL DRAM:\n";
-    for (const auto& op : open_ports) {
-        std::cout << op.src_prt << " " << op.dst_prt << ": ";
-        for (int i=0;i<DATA_ARR_SIZE;i++) {
-            char buf[3];
-            std::snprintf(buf, sizeof(buf), "%02x", static_cast<unsigned int>(op.data[i]));
-            std::cout << buf;
-            if (i+1 != DATA_ARR_SIZE) std::cout << " ";
-        }
-        std::cout << "\n";
-    }
     std::cout << "RQ:\n";
     for (const auto& s : RQ) {
         std::cout << s << "\n";
     }
-    std::cout << "TQ:\n";
+    std::cout << "\nTQ:\n";
     for (const auto& s : TQ) {
         std::cout << s << "\n";
+    }
+    std::cout << "\nLOCAL DRAM:\n";
+    for (const auto& op : open_ports) {
+        std::cout << op.dst_prt << " " << op.src_prt << ": ";
+        for (int i = 0; i < DATA_ARR_SIZE; i++) {
+            char buf[3];
+            std::snprintf(buf, sizeof(buf), "%02x", static_cast<unsigned int>(op.data[i]));
+            std::cout << buf;
+            if (i + 1 != DATA_ARR_SIZE) std::cout << " ";
+        }
+        std::cout << "\n";
     }
 }
 
 nic_sim::~nic_sim() {
-    auto* priv = get_priv(this);
-    (void)priv;
+    auto& reg = registry();
+    for (auto it = reg.begin(); it != reg.end(); ++it) {
+        if (it->first == this) {
+            // release private state allocated for this simulator instance
+            delete it->second;
+            reg.erase(it);
+            break;
+        }
+    }
 }
 
 #include <cctype>

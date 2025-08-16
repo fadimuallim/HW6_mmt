@@ -23,7 +23,7 @@ public:
 
     bool as_string(std::string &packet) override;
 
-    ~l2_packet() override = default;
+    ~l2_packet() override;
 
 private:
     static bool parse_mac(const std::string& s, uint8_t out[common::MAC_SIZE]);
