@@ -151,7 +151,7 @@ bool l3_packet::proccess_packet(open_port_vec &open_ports,
     out_ttl_ = new_ttl;
 
     if (dst_is_nic) {
-        l4_packet inner(l4_index_, dst_port_, src_port_, data_);
+        l4_packet inner(l4_index_, src_port_, dst_port_, data_);
         memory_dest inner_dst;
         if (!(inner.validate_packet(open_ports, nic_ip, mask, nullptr) &&
               inner.proccess_packet(open_ports, nic_ip, mask, inner_dst))) {

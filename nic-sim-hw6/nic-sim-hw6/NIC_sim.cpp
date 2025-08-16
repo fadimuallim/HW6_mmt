@@ -27,24 +27,25 @@ static std::string trim(const std::string &s) {
 
 static bool parse_mac_line(const std::string& s, uint8_t mac[MAC_SIZE]) {
     size_t a = 0;
-    for (int i=0;i<MAC_SIZE;i++) {
+    for (int i = 0; i < MAC_SIZE; i++) {
         if (a + 1 >= s.size()) return false;
-        auto hexval = [](char c)->int{
-            if ('0'<=c && c<='9') return c - '0';
-            if ('a'<=c && c<='f') return 10 + (c - 'a');
-            if ('A'<=c && c<='F') return 10 + (c - 'A');
+        auto hexval = [](char c) -> int {
+            if ('0' <= c && c <= '9') return c - '0';
+            if ('a' <= c && c <= 'f') return 10 + (c - 'a');
+            if ('A' <= c && c <= 'F') return 10 + (c - 'A');
             return -1;
         };
         int v1 = hexval(s[a]);
-        int v2 = hexval(s[a+1]);
-        if (v1<0 || v2<0) return false;
-        mac[i] = static_cast<uint8_t>((v1<<4)|v2);
-        if (i<MAC_SIZE-1) {
-            if (a+2 >= s.size() || s[a+2] != ':') return false;
-            a += 3;
+        int v2 = hexval(s[a + 1]);
+        if (v1 < 0 || v2 < 0) return false;
+        mac[i] = static_cast<uint8_t>((v1 << 4) | v2);
+        a += 2;
+        if (i < MAC_SIZE - 1) {
+            if (a >= s.size() || s[a] != ':') return false;
+            ++a;
         }
     }
-    return true;
+    return a == s.size();
 }
 
 static bool parse_ip_mask_line(const std::string& s, uint8_t ip[IP_V4_SIZE], uint8_t &mask_bits) {
@@ -137,7 +138,7 @@ nic_sim::nic_sim(std::string param_file) {
         if (line.empty() || line[0] == '#') continue;
         uint16_t src, dst;
         if (parse_open_port_line(line, src, dst)) {
-            open_ports.emplace_back(dst, src);
+            open_ports.emplace_back(src, dst);
         }
     }
 }
@@ -168,6 +169,14 @@ void nic_sim::nic_flow(std::string packet_file) {
 }
 
 void nic_sim::nic_print_results() {
+    std::cout << "RQ:\n";
+    for (const auto& s : RQ) {
+        std::cout << s << "\n";
+    }
+    std::cout << "TQ:\n";
+    for (const auto& s : TQ) {
+        std::cout << s << "\n";
+    }
     std::cout << "LOCAL DRAM:\n";
     for (const auto& op : open_ports) {
         std::cout << op.src_prt << " " << op.dst_prt << ": ";
@@ -178,14 +187,6 @@ void nic_sim::nic_print_results() {
             if (i + 1 != DATA_ARR_SIZE) std::cout << " ";
         }
         std::cout << "\n";
-    }
-    std::cout << "\nRQ:\n";
-    for (const auto& s : RQ) {
-        std::cout << s << "\n";
-    }
-    std::cout << "\nTQ:\n";
-    for (const auto& s : TQ) {
-        std::cout << s << "\n";
     }
 }
 
@@ -209,13 +210,16 @@ static bool looks_like_mac_packet(const std::string& s) {
 static bool looks_like_l3_packet(const std::string& s) {
     size_t p1 = s.find('|');
     if (p1 == std::string::npos) return false;
-    auto is_ip = [](const std::string& t)->bool{
+    auto is_ip = [](const std::string& t) -> bool {
         int dots = 0;
-        for (char c: t) if (c=='.') dots++;
-        return dots==3;
+        for (char c : t) if (c == '.') dots++;
+        return dots == 3;
     };
     std::string first = s.substr(0, p1);
-    return is_ip(first);
+    if (!is_ip(first)) return false;
+    int bars = 0;
+    for (char c : s) if (c == '|') ++bars;
+    return bars >= 7;
 }
 
 std::unique_ptr<generic_packet> nic_sim::packet_factory(std::string &packet) {
