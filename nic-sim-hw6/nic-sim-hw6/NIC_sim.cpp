@@ -122,6 +122,7 @@ nic_sim::nic_sim(std::string param_file) {
     while (std::getline(in, line)) {
         uint16_t src, dst;
         if (parse_open_port_line(line, src, dst)) {
+            // constructor takes (dst, src)
             open_ports.emplace_back(dst, src);
         }
     }
