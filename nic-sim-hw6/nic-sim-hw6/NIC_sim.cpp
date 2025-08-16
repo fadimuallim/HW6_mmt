@@ -1,4 +1,5 @@
 #include "NIC_sim.hpp"
+// use NIC_sim.hpp directly
 #include <fstream>
 #include <string>
 #include <vector>
