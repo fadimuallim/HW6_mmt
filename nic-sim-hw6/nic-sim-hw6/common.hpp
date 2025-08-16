@@ -60,7 +60,7 @@ namespace common {
 
         /**
          * @fn print_hex_byte
-         * @brief Prints a single byte as a 2-digit lowercase hexadecimal number.
+         * @brief Prints a single byte as a 2-digit uppercase hexadecimal number.
          *
          * @param idx - Index of the char in 'data' to print.
          *
@@ -71,8 +71,8 @@ namespace common {
          *      output.
          */
         void print_hex_byte(int idx) {
-            std::cout << std::hex << std::setw(2) << std::setfill('0')
-                    << static_cast<int>(data[idx]) << std::dec;
+            std::cout << std::uppercase << std::hex << std::setw(2) << std::setfill('0')
+                    << static_cast<int>(data[idx]) << std::nouppercase << std::dec;
         }
     };
 

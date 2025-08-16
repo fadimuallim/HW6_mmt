@@ -6,6 +6,8 @@
 #include <cstring>
 #include <cstdlib>
 #include <memory>
+#include <algorithm>
+#include <cctype>
 
 using namespace common;
 
@@ -113,13 +115,17 @@ nic_sim::nic_sim(std::string param_file) {
     }
 }
 
+
 void nic_sim::nic_flow(std::string packet_file) {
     auto* priv = get_priv(this);
     std::ifstream in(packet_file);
     std::string line;
     while (std::getline(in, line)) {
-        if (line.empty()) continue;
-        auto pkt = packet_factory(line);
+        auto trimmed = line;
+        trimmed.erase(trimmed.begin(), std::find_if(trimmed.begin(), trimmed.end(), [](int ch){ return !std::isspace(ch); }));
+        trimmed.erase(std::find_if(trimmed.rbegin(), trimmed.rend(), [](int ch){ return !std::isspace(ch); }).base(), trimmed.end());
+        if (trimmed.empty()) continue;
+        auto pkt = packet_factory(trimmed);
         if (!pkt) continue;
 
         if (!pkt->validate_packet(open_ports, priv->ip, priv->mask_bits, priv->mac)) {
@@ -143,7 +149,7 @@ void nic_sim::nic_print_results() {
         std::cout << op.src_prt << " " << op.dst_prt << ": ";
         for (int i = 0; i < DATA_ARR_SIZE; i++) {
             char buf[3];
-            std::snprintf(buf, sizeof(buf), "%02x", static_cast<unsigned int>(op.data[i]));
+            std::snprintf(buf, sizeof(buf), "%02X", static_cast<unsigned int>(op.data[i]));
             std::cout << buf;
             if (i + 1 != DATA_ARR_SIZE) std::cout << " ";
         }
@@ -169,8 +175,6 @@ nic_sim::~nic_sim() {
         }
     }
 }
-
-#include <cctype>
 
 static bool looks_like_mac_packet(const std::string& s) {
     int colons = 0;
