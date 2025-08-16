@@ -87,17 +87,26 @@ uint32_t l3_packet::compute_checksum(const uint8_t src_ip[4],
                                      uint32_t ttl,
                                      uint16_t dst_port,
                                      uint16_t src_port,
+                                     uint32_t l4_index,
                                      const std::vector<uint8_t>& data) {
     uint32_t sum = 0;
-    for (int i=0;i<4;i++) { sum += src_ip[i]; }
-    for (int i=0;i<4;i++) { sum += dst_ip[i]; }
+    for (int i = 0; i < 4; i++) sum += src_ip[i];
+    for (int i = 0; i < 4; i++) sum += dst_ip[i];
     sum += static_cast<uint8_t>(ttl & 0xFF);
-    sum += static_cast<uint8_t>((dst_port>>8) & 0xFF);
+    sum += static_cast<uint8_t>((dst_port >> 8) & 0xFF);
     sum += static_cast<uint8_t>(dst_port & 0xFF);
-    sum += static_cast<uint8_t>((src_port>>8) & 0xFF);
+    sum += static_cast<uint8_t>((src_port >> 8) & 0xFF);
     sum += static_cast<uint8_t>(src_port & 0xFF);
+    sum += static_cast<uint8_t>((l4_index >> 24) & 0xFF);
+    sum += static_cast<uint8_t>((l4_index >> 16) & 0xFF);
+    sum += static_cast<uint8_t>((l4_index >> 8) & 0xFF);
+    sum += static_cast<uint8_t>(l4_index & 0xFF);
     for (auto b : data) sum += b;
     return sum;
+}
+
+uint32_t l3_packet::raw_fields_checksum() const {
+    return compute_checksum(src_ip_, dst_ip_, ttl_, dst_port_, src_port_, l4_index_, data_);
 }
 
 void l3_packet::ip_to_string_upper(const uint8_t ip[4], std::string& out) {
@@ -114,7 +123,7 @@ bool l3_packet::validate_packet(open_port_vec open_ports,
                                 uint8_t mac[MAC_SIZE]) {
     (void)open_ports; (void)mac; (void)ip; (void)mask;
     if (!valid_parse_) return false;
-    uint32_t calc = compute_checksum(src_ip_, dst_ip_, ttl_, dst_port_, src_port_, data_);
+    uint32_t calc = compute_checksum(src_ip_, dst_ip_, ttl_, dst_port_, src_port_, l4_index_, data_);
     if (calc != checksum_) return false;
     return true;
 }
@@ -142,7 +151,7 @@ bool l3_packet::proccess_packet(open_port_vec &open_ports,
     out_ttl_ = new_ttl;
 
     if (dst_is_nic) {
-        l4_packet inner(l4_index_, src_port_, dst_port_, data_);
+        l4_packet inner(l4_index_, dst_port_, src_port_, data_);
         memory_dest inner_dst;
         if (!(inner.validate_packet(open_ports, nic_ip, mask, nullptr) &&
               inner.proccess_packet(open_ports, nic_ip, mask, inner_dst))) {
@@ -154,7 +163,7 @@ bool l3_packet::proccess_packet(open_port_vec &open_ports,
     }
 
     if (dst_local && !src_local) {
-        out_checksum_ = compute_checksum(out_src_ip_, out_dst_ip_, out_ttl_, dst_port_, src_port_, data_);
+        out_checksum_ = compute_checksum(out_src_ip_, out_dst_ip_, out_ttl_, dst_port_, src_port_, l4_index_, data_);
         to_rq_ = true;
         dst = RQ;
         return true;
@@ -162,14 +171,14 @@ bool l3_packet::proccess_packet(open_port_vec &open_ports,
 
     if (src_local && !dst_local) {
         std::memcpy(out_src_ip_, nic_ip, 4);
-        out_checksum_ = compute_checksum(out_src_ip_, out_dst_ip_, out_ttl_, dst_port_, src_port_, data_);
+        out_checksum_ = compute_checksum(out_src_ip_, out_dst_ip_, out_ttl_, dst_port_, src_port_, l4_index_, data_);
         to_tq_ = true;
         dst = TQ;
         return true;
     }
 
     if (!src_local && !dst_local) {
-        out_checksum_ = compute_checksum(out_src_ip_, out_dst_ip_, out_ttl_, dst_port_, src_port_, data_);
+        out_checksum_ = compute_checksum(out_src_ip_, out_dst_ip_, out_ttl_, dst_port_, src_port_, l4_index_, data_);
         to_tq_ = true;
         dst = TQ;
         return true;
@@ -180,7 +189,7 @@ bool l3_packet::proccess_packet(open_port_vec &open_ports,
 
 bool l3_packet::as_string(std::string &packet) {
     if (!(to_rq_ || to_tq_)) {
-        out_checksum_ = compute_checksum(src_ip_, dst_ip_, ttl_, dst_port_, src_port_, data_);
+        out_checksum_ = compute_checksum(src_ip_, dst_ip_, ttl_, dst_port_, src_port_, l4_index_, data_);
         std::memcpy(out_src_ip_, src_ip_, 4);
         std::memcpy(out_dst_ip_, dst_ip_, 4);
         out_ttl_ = ttl_;
@@ -190,7 +199,7 @@ bool l3_packet::as_string(std::string &packet) {
     ip_to_string_upper(out_dst_ip_, dip);
     packet.clear();
     packet += sip + "|" + dip + "|" + std::to_string(out_ttl_) + "|" + std::to_string(out_checksum_) + "|";
-    packet += std::to_string(dst_port_) + "|" + std::to_string(src_port_) + "|0|";
+    packet += std::to_string(dst_port_) + "|" + std::to_string(src_port_) + "|" + std::to_string(l4_index_) + "|";
     for (size_t i = 0; i < data_.size(); ++i) {
         char buf[3];
         std::snprintf(buf, sizeof(buf), "%02x", static_cast<unsigned int>(data_[i]));
