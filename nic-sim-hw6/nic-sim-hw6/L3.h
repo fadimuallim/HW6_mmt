@@ -25,17 +25,21 @@ public:
 
     ~l3_packet() override = default;
 
-private:
-    static bool parse_ip(const std::string& s, uint8_t out[common::IP_V4_SIZE]);
-    static bool is_local_ip(const uint8_t addr[4],
-                            const uint8_t nic_ip[4],
-                            uint8_t mask_bits);
     static uint32_t compute_checksum(const uint8_t src_ip[4],
                                      const uint8_t dst_ip[4],
                                      uint32_t ttl,
                                      uint16_t dst_port,
                                      uint16_t src_port,
+                                     uint32_t l4_index,
                                      const std::vector<uint8_t>& data);
+
+    uint32_t raw_fields_checksum() const;
+
+private:
+    static bool parse_ip(const std::string& s, uint8_t out[common::IP_V4_SIZE]);
+    static bool is_local_ip(const uint8_t addr[4],
+                            const uint8_t nic_ip[4],
+                            uint8_t mask_bits);
     static void ip_to_string_upper(const uint8_t ip[4], std::string& out);
 
     uint8_t src_ip_[4]{};
